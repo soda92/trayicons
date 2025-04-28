@@ -3,25 +3,28 @@ from watchdog.observers import Observer
 from watchdog.observers.api import BaseObserver
 from watchdog.events import FileSystemEventHandler
 import subprocess
-from .find_krita import get_krita
-from sodatools import str_path
+from sodatools import str_path, CD
 from pathlib import Path
 
 
 def convert_to_ico(krita_filepath, output_file: Path):
     """Converts a Krita image to an ICO file."""
     try:
-        krita = get_krita()
-        subprocess.run(
-            [
-                str_path(krita),
-                krita_filepath,
-                "--export",
-                "--export-filename",
-                str_path(output_file),
-            ],
-            check=True,
-        )
+        with CD(Path(krita_filepath).parent):
+            subprocess.run(
+                [
+                    "7z",
+                    "x",
+                    "-y",
+                    krita_filepath,
+                    "mergedimage.png",
+                ],
+                check=True,
+            )
+            subprocess.run(
+                ["magick", "mergedimage.png", str_path(output_file)],
+                check=True,
+            )
     except Exception as e:
         print(f"Error converting '{krita_filepath}': {e}")
 

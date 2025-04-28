@@ -30,9 +30,7 @@ class MainWindow:
                     (".ico", ".krz")
                 ):
                     print(f"Detected change in: {event.src_path}")
-                    import time
-                    time.sleep(1)
-                    self._DoCreateIcons()
+                    self.update_icons()
 
         def create_obeserver() -> BaseObserver:
             output_directory = self.icon_path.resolve().parent
@@ -85,6 +83,43 @@ class MainWindow:
         win32gui.UpdateWindow(self.hwnd)
         self._DoCreateIcons()
         self.observer = create_obeserver()
+
+    def update_icons(self):
+        """Updates the icon in the system tray."""
+        # Try and find a custom icon
+        hinst = win32api.GetModuleHandle(None)
+        iconPathName = str_path(self.icon_path)
+        if os.path.isfile(iconPathName):
+            icon_flags = win32con.LR_LOADFROMFILE | win32con.LR_DEFAULTSIZE
+            hicon = None
+            loaded = False
+            while not loaded:
+                try:
+                    hicon = win32gui.LoadImage(
+                        hinst, iconPathName, win32con.IMAGE_ICON, 0, 0, icon_flags
+                    )
+                except Exception as _e:
+                    import time
+
+                    time.sleep(0.1)
+                    continue
+                else:
+                    loaded = True
+        else:
+            print("Can't find icon file")
+            exit(-1)
+            # hicon = win32gui.LoadIcon(0, win32con.IDI_APPLICATION)
+
+        flags = win32gui.NIF_ICON | win32gui.NIF_MESSAGE | win32gui.NIF_TIP
+        nid = (self.hwnd, 0, flags, win32con.WM_USER + 20, hicon, "Python Demo")
+        try:
+            win32gui.Shell_NotifyIcon(win32gui.NIM_MODIFY, nid)
+        except win32gui.error as e:
+            # This is common when windows is starting, and this code is hit
+            # before the taskbar has been created.
+            print(f"Failed to update tray icon: {e}")
+            # but keep running anyway - when explorer starts, we get the
+            # TaskbarCreated message.
 
     def _DoCreateIcons(self):
         # Try and find a custom icon
