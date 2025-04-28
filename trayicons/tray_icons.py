@@ -1,16 +1,49 @@
-# Creates a task-bar icon.  Run from Python.exe to see the
-# messages printed.
 import os
 
 import win32api
 import win32con
 import win32gui
 import winerror
-import time
+
+from pathlib import Path
+from sodatools import str_path
+
+from watchdog.observers import Observer
+from watchdog.observers.api import BaseObserver
+from watchdog.events import FileSystemEventHandler
 
 
 class MainWindow:
-    def __init__(self):
+    def __init__(self, icon_path: Path, krita_handler):
+        self.icon_path = icon_path
+        self.krita_handler = krita_handler
+
+        class IconEventHandler(FileSystemEventHandler):
+            """Handles file system events, specifically looking for Krita file changes."""
+
+            def __init__(self, icon_file: Path):
+                super().__init__()
+                self.output_file = icon_file
+
+            def on_modified(self1, event):
+                if not event.is_directory and event.src_path.lower().endswith(
+                    (".ico", ".krz")
+                ):
+                    print(f"Detected change in: {event.src_path}")
+                    import time
+                    time.sleep(1)
+                    self._DoCreateIcons()
+
+        def create_obeserver() -> BaseObserver:
+            output_directory = self.icon_path.resolve().parent
+            # Create the output directory if it doesn't exist
+            os.makedirs(output_directory, exist_ok=True)
+
+            event_handler = IconEventHandler(icon_file=self.icon_path)
+            observer = Observer()
+            observer.schedule(event_handler, self.icon_path.parent, recursive=False)
+            return observer
+
         msg_TaskbarRestart = win32gui.RegisterWindowMessage("TaskbarCreated")
         message_map = {
             msg_TaskbarRestart: self.OnRestart,
@@ -51,22 +84,21 @@ class MainWindow:
         )
         win32gui.UpdateWindow(self.hwnd)
         self._DoCreateIcons()
+        self.observer = create_obeserver()
 
     def _DoCreateIcons(self):
         # Try and find a custom icon
         hinst = win32api.GetModuleHandle(None)
-        from pathlib import Path
-
-        cr = Path(__file__).resolve().parent
-        iconPathName = str(cr.joinpath("NoAdmin.ico")).replace("\\", "/")
+        iconPathName = str_path(self.icon_path)
         if os.path.isfile(iconPathName):
             icon_flags = win32con.LR_LOADFROMFILE | win32con.LR_DEFAULTSIZE
             hicon = win32gui.LoadImage(
                 hinst, iconPathName, win32con.IMAGE_ICON, 0, 0, icon_flags
             )
         else:
-            print("Can't find a Python icon file - using default")
-            hicon = win32gui.LoadIcon(0, win32con.IDI_APPLICATION)
+            print("Can't find icon file")
+            exit(-1)
+            # hicon = win32gui.LoadIcon(0, win32con.IDI_APPLICATION)
 
         flags = win32gui.NIF_ICON | win32gui.NIF_MESSAGE | win32gui.NIF_TIP
         nid = (self.hwnd, 0, flags, win32con.WM_USER + 20, hicon, "Python Demo")
@@ -93,6 +125,7 @@ class MainWindow:
         elif lparam == win32con.WM_LBUTTONDBLCLK:
             print("You double-clicked me - goodbye")
             win32gui.DestroyWindow(self.hwnd)
+            self.cleanup_handler()
         elif lparam == win32con.WM_RBUTTONUP:
             print("You right clicked me.")
             menu = win32gui.CreatePopupMenu()
@@ -119,26 +152,13 @@ class MainWindow:
         elif id == 1025:
             print("Goodbye")
             win32gui.DestroyWindow(self.hwnd)
+            self.cleanup_handler()
         else:
             print("Unknown command -", id)
 
+    def cleanup_handler(self):
+        self.krita_handler.stop()
+        self.krita_handler.join()
 
-def main():
-    _w = MainWindow()
-    win32gui.PumpMessages()
-
-    from .watchdog import watch_detach
-
-    observer = watch_detach()
-
-    try:
-        while True:
-            time.sleep(1)
-    except KeyboardInterrupt:
-        observer.stop()
-    observer.join()
-    print("Stopped watching.")
-
-
-if __name__ == "__main__":
-    main()
+    def run(self):
+        win32gui.PumpMessages()

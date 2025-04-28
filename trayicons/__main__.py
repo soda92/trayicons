@@ -1,4 +1,4 @@
-from .tray_icons import main
+from .main import main
 
 
 if __name__ == "__main__":

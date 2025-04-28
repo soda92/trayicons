@@ -1,6 +1,7 @@
 import argparse
 import os
 import toml
+from pathlib import Path
 
 
 class IconConfig:
@@ -8,7 +9,7 @@ class IconConfig:
     Represents a single icon configuration.
     """
 
-    def __init__(self, src, dst):
+    def __init__(self, src, dst, toml_file_path):
         """
         Initializes an IconConfig object.
 
@@ -16,8 +17,12 @@ class IconConfig:
             src (str): The source file path.
             dst (str): The destination file path.
         """
-        self.src = src
-        self.dst = dst
+        p = Path(toml_file_path).resolve().parent
+        self.src = p.joinpath(src).resolve()
+        if not self.src.exists():
+            print(f"config error: path {self.src} not exists.")
+            exit(-1)
+        self.dst = p.joinpath(dst).resolve()
 
     def __repr__(self):
         """
@@ -35,7 +40,7 @@ class Config:
         """
         Initializes a Config object.
         """
-        self.icons = []  # List to store IconConfig objects
+        self.icons: list[IconConfig] = []  # List to store IconConfig objects
 
     def add_icon_config(self, icon_config):
         """
@@ -47,7 +52,7 @@ class Config:
         self.icons.append(icon_config)
 
     @classmethod
-    def from_toml(cls, toml_file_path):
+    def from_toml(cls, toml_file_path: str):
         """
         Loads the configuration from a TOML file.
 
@@ -66,7 +71,9 @@ class Config:
                     for icon_data in toml_data["icon"]:
                         # print(icon_data) # for debugging
                         if "src" in icon_data and "dst" in icon_data:
-                            icon_config = IconConfig(icon_data["src"], icon_data["dst"])
+                            icon_config = IconConfig(
+                                icon_data["src"], icon_data["dst"], toml_file_path
+                            )
                             config.add_icon_config(icon_config)
                         else:
                             print(
@@ -125,12 +132,15 @@ def load_config() -> Config:
 
     config = None
 
+    cr = os.getcwd()
     if args.config:
-        config = Config.from_toml(args.config)
+        config_path = os.path.join(cr, args.config)
+        config = Config.from_toml(config_path)
     elif args.config_file:
-        config = Config.from_toml(args.config_file)
+        config_path = os.path.join(cr, args.config_file)
+        config = Config.from_toml(config_path)
     else:
-        default_config_path = "icons.toml"
+        default_config_path = os.path.join(cr, "icons.toml")
         if os.path.exists(default_config_path):
             config = Config.from_toml(default_config_path)
         else:

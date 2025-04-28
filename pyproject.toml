@@ -12,7 +12,7 @@ dependencies = [
 ]
 
 [project.urls]
-Repository = "https://github.com/soda92/ahk-cursor"
+Repository = "https://github.com/soda92/trayicons"
 
 [build-system]
 requires = ["hatchling"]
@@ -34,4 +34,4 @@ dev = [
 ]
 
 [project.scripts]
-trayicons = "trayicons:main"
+trayicons = "trayicons.main:main"
