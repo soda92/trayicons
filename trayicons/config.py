@@ -2,10 +2,12 @@ import argparse
 import os
 import toml
 
+
 class IconConfig:
     """
     Represents a single icon configuration.
     """
+
     def __init__(self, src, dst):
         """
         Initializes an IconConfig object.
@@ -28,6 +30,7 @@ class Config:
     """
     Represents the overall application configuration, including a list of icon configurations.
     """
+
     def __init__(self):
         """
         Initializes a Config object.
@@ -56,19 +59,23 @@ class Config:
         """
         config = cls()  # Create an instance of Config
         try:
-            with open(toml_file_path, 'r') as f:
+            with open(toml_file_path, "r") as f:
                 toml_data = toml.load(f)  # Load the TOML data
-                #print(toml_data) #for debugging
-                if 'icon' in toml_data:
-                    for icon_data in toml_data['icon']:
-                        #print(icon_data) # for debugging
-                        if 'src' in icon_data and 'dst' in icon_data:
-                            icon_config = IconConfig(icon_data['src'], icon_data['dst'])
+                # print(toml_data) #for debugging
+                if "icon" in toml_data:
+                    for icon_data in toml_data["icon"]:
+                        # print(icon_data) # for debugging
+                        if "src" in icon_data and "dst" in icon_data:
+                            icon_config = IconConfig(icon_data["src"], icon_data["dst"])
                             config.add_icon_config(icon_config)
                         else:
-                            print(f"Warning: Incomplete icon configuration: {icon_data}")
+                            print(
+                                f"Warning: Incomplete icon configuration: {icon_data}"
+                            )
                 else:
-                    print(f"Warning: No 'icon' table found in TOML file: {toml_file_path}")
+                    print(
+                        f"Warning: No 'icon' table found in TOML file: {toml_file_path}"
+                    )
 
         except FileNotFoundError:
             print(f"Error: TOML file not found at {toml_file_path}")
@@ -91,23 +98,10 @@ class Config:
         return len(self.icons)
 
 
-
-if __name__ == "__main__":
-    main()
-
-def load_config(filepath):
-    """Placeholder function to load a config file."""
-    print(f"Loading config from: {filepath}")
-    # In a real application, you would read and parse the file here
-    # For example, if it's a TOML file:
-    # import toml
-    # with open(filepath, 'r') as f:
-    #     config_data = toml.load(f)
-    # return config_data
-    return {"loaded_from": filepath}
-
-def main():
-    parser = argparse.ArgumentParser(description="A program that loads configuration files.")
+def load_config() -> Config:
+    parser = argparse.ArgumentParser(
+        description="A program that loads configuration files."
+    )
 
     # Optional argument for specifying the config file
     parser.add_argument(
@@ -115,7 +109,7 @@ def main():
         "-c",  # Short option
         type=str,
         help="Path to the configuration file.",
-        metavar="FILE"
+        metavar="FILE",
     )
 
     # Positional argument for the config file (optional)
@@ -124,7 +118,7 @@ def main():
         nargs="?",  # Allows 0 or 1 positional arguments
         type=str,
         help="Optional path to the configuration file (can also use --config).",
-        metavar="FILE"
+        metavar="FILE",
     )
 
     args = parser.parse_args()
@@ -132,19 +126,19 @@ def main():
     config = None
 
     if args.config:
-        config = load_config(args.config)
+        config = Config.from_toml(args.config)
     elif args.config_file:
-        config = load_config(args.config_file)
+        config = Config.from_toml(args.config_file)
     else:
-        default_config_path = "conf.toml"
+        default_config_path = "icons.toml"
         if os.path.exists(default_config_path):
-            config = load_config(default_config_path)
+            config = Config.from_toml(default_config_path)
         else:
             print(f"Default config '{default_config_path}' not found.")
+            exit(-1)
             config = {}  # Or handle the absence of default config as needed
 
     if config:
         print("Loaded Configuration:", config)
 
-if __name__ == "__main__":
-    main()
+    return config

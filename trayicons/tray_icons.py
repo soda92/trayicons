@@ -6,6 +6,7 @@ import win32api
 import win32con
 import win32gui
 import winerror
+import time
 
 
 class MainWindow:
@@ -55,8 +56,9 @@ class MainWindow:
         # Try and find a custom icon
         hinst = win32api.GetModuleHandle(None)
         from pathlib import Path
+
         cr = Path(__file__).resolve().parent
-        iconPathName = str(cr.joinpath("NoAdmin.ico")).replace('\\', '/')
+        iconPathName = str(cr.joinpath("NoAdmin.ico")).replace("\\", "/")
         if os.path.isfile(iconPathName):
             icon_flags = win32con.LR_LOADFROMFILE | win32con.LR_DEFAULTSIZE
             hicon = win32gui.LoadImage(
@@ -109,7 +111,7 @@ class MainWindow:
     def OnCommand(self, hwnd, msg, wparam, lparam):
         id = win32api.LOWORD(wparam)
         if id == 1023:
-            import win32gui_dialog # type: ignore
+            import win32gui_dialog  # type: ignore
 
             win32gui_dialog.DemoModal()
         elif id == 1024:
@@ -124,6 +126,18 @@ class MainWindow:
 def main():
     _w = MainWindow()
     win32gui.PumpMessages()
+
+    from .watchdog import watch_detach
+
+    observer = watch_detach()
+
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        observer.stop()
+    observer.join()
+    print("Stopped watching.")
 
 
 if __name__ == "__main__":

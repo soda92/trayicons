@@ -1,9 +1,10 @@
 import os
-import time
 from watchdog.observers import Observer
+from watchdog.observers.api import BaseObserver
 from watchdog.events import FileSystemEventHandler
 import subprocess
 from .find_krita import get_krita
+from sodatools import str_path
 
 
 def convert_to_ico(krita_filepath, output_dir="."):
@@ -11,10 +12,16 @@ def convert_to_ico(krita_filepath, output_dir="."):
     try:
         krita = get_krita()
         subprocess.run(
-            [krita, krita_filepath, "--export", "--export-filename", "my_image.png"],
+            [
+                str_path(krita),
+                krita_filepath,
+                "--export",
+                "--export-filename",
+                "my_image.png",
+            ],
             check=True,
         )
-        print(f"Converted '{krita_filepath}' to '{ico_filepath}'")
+        # print(f"Converted '{krita_filepath}' to '{ico_filepath}'")
     except Exception as e:
         print(f"Error converting '{krita_filepath}': {e}")
 
@@ -28,7 +35,7 @@ class KritaEventHandler(FileSystemEventHandler):
             convert_to_ico(event.src_path)
 
 
-if __name__ == "__main__":
+def watch_detach() -> BaseObserver:
     path_to_watch = "."  # You can change this to the directory you want to monitor
     output_directory = "icons"  # Directory to save the generated ICO files
 
@@ -40,10 +47,4 @@ if __name__ == "__main__":
     observer.schedule(event_handler, path_to_watch, recursive=False)
     observer.start()
     print(f"Watching directory '{path_to_watch}' for changes in Krita files...")
-    try:
-        while True:
-            time.sleep(1)
-    except KeyboardInterrupt:
-        observer.stop()
-    observer.join()
-    print("Stopped watching.")
+    return observer
