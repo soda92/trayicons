@@ -1,7 +1,6 @@
 from .tray_icons import MainWindow
 from .watchdog import watch_detach, convert_to_ico
 from .config import get_config_path, Config
-from pathlib import Path
 
 
 def main():
