@@ -3,6 +3,8 @@ tests/*.ico
 tests/*.zip
 mergedimage.png
 
+_debug_bin*
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
