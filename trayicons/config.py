@@ -63,33 +63,47 @@ class Config:
             Config: A Config object containing the loaded configuration.
         """
         config = cls()  # Create an instance of Config
+        content = Path(toml_file_path).read_text(encoding="utf8")
+        toml_data = dict()
         try:
-            with open(toml_file_path, "r") as f:
-                toml_data = toml.load(f)  # Load the TOML data
-                # print(toml_data) #for debugging
-                if "icon" in toml_data:
-                    for icon_data in toml_data["icon"]:
-                        # print(icon_data) # for debugging
-                        if "src" in icon_data and "dst" in icon_data:
-                            icon_config = IconConfig(
-                                icon_data["src"], icon_data["dst"], toml_file_path
-                            )
-                            config.add_icon_config(icon_config)
-                        else:
-                            print(
-                                f"Warning: Incomplete icon configuration: {icon_data}"
-                            )
-                else:
-                    print(
-                        f"Warning: No 'icon' table found in TOML file: {toml_file_path}"
-                    )
-
-        except FileNotFoundError:
-            print(f"Error: TOML file not found at {toml_file_path}")
-            # You might want to raise an exception here depending on your application's needs
+            toml_data = toml.loads(content)  # Load the TOML data
+            # print(toml_data) #for debugging
         except toml.TomlDecodeError as e:
             print(f"Error decoding TOML: {e}")
             #  Handle TOML decoding errors
+
+        if "icon" in toml_data:
+            for icon_data in toml_data["icon"]:
+                # print(icon_data) # for debugging
+                if "src" in icon_data and "dst" in icon_data:
+                    icon_config = IconConfig(
+                        icon_data["src"], icon_data["dst"], toml_file_path
+                    )
+                    config.add_icon_config(icon_config)
+                else:
+                    print(f"Warning: Incomplete icon configuration: {icon_data}")
+            print("converting icon to icons...")
+            for icon_data in toml_data["icon"]:
+                import copy
+
+                toml_data["icons"] = copy.deepcopy(toml_data["icon"])
+                del toml_data["icon"]
+                Path(toml_file_path).write_text(toml.dumps(toml_data))
+        elif "icons" in toml_data:
+            for icon_data in toml_data["icons"]:
+                # print(icon_data) # for debugging
+                if "src" in icon_data and "dst" in icon_data:
+                    icon_config = IconConfig(
+                        icon_data["src"], icon_data["dst"], toml_file_path
+                    )
+                    config.add_icon_config(icon_config)
+                else:
+                    print(f"Warning: Incomplete icon configuration: {icon_data}")
+        else:
+            print(
+                f"Warning: No 'icon/icons' table found in TOML file: {toml_file_path}"
+            )
+
         return config
 
     def __iter__(self):
@@ -149,7 +163,7 @@ def load_config() -> Config:
             Path(default_config_path).write_text(
                 encoding="utf8",
                 data="""
-[[icon]]
+[[icons]]
 src = "demo.kra"
 dst = "./demo.ico"
 """,
