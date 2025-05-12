@@ -119,7 +119,7 @@ class Config:
         return len(self.icons)
 
 
-def load_config() -> Config:
+def get_config_path() -> Path:
     parser = argparse.ArgumentParser(
         description="A program that loads configuration files."
     )
@@ -144,23 +144,21 @@ def load_config() -> Config:
 
     args = parser.parse_args()
 
-    config = None
+    cr = Path(os.getcwd()).resolve()
 
-    cr = os.getcwd()
+    config_path = None
+
     if args.config:
-        config_path = os.path.join(cr, args.config)
-        config = Config.from_toml(config_path)
+        config_path = cr.joinpath(args.config)
     elif args.config_file:
-        config_path = os.path.join(cr, args.config_file)
-        config = Config.from_toml(config_path)
-    else:
-        default_config_path = os.path.join(cr, "icons.toml")
-        if os.path.exists(default_config_path):
-            config = Config.from_toml(default_config_path)
-        else:
-            print(f"Default config '{default_config_path}' not found.")
+        config_path = cr.joinpath(args.config_file)
+
+    if config_path is None:
+        config_path = cr.joinpath("icons.toml")
+        if not config_path.exists():
+            print(f"Default config '{config_path}' not found.")
             print("creating...")
-            Path(default_config_path).write_text(
+            Path(config_path).write_text(
                 encoding="utf8",
                 data="""
 [[icons]]
@@ -170,9 +168,5 @@ dst = "./demo.ico"
             )
             print("please correct the config then run the tool again.")
             exit(-1)
-            config = {}  # Or handle the absence of default config as needed
 
-    if config:
-        print("Loaded Configuration:", config)
-
-    return config
+    return config_path
