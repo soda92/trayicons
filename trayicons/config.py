@@ -145,6 +145,16 @@ def load_config() -> Config:
             config = Config.from_toml(default_config_path)
         else:
             print(f"Default config '{default_config_path}' not found.")
+            print("creating...")
+            Path(default_config_path).write_text(
+                encoding="utf8",
+                data="""
+[[icon]]
+src = "demo.kra"
+dst = "./demo.ico"
+""",
+            )
+            print("please correct the config then run the tool again.")
             exit(-1)
             config = {}  # Or handle the absence of default config as needed
 
