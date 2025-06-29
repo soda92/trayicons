@@ -51,74 +51,55 @@ class Config:
         """
         self.icons.append(icon_config)
 
+    @staticmethod
+    def _parse_icon_data(icon_data, toml_file_path):
+        """
+        Parses a single icon data entry from the TOML file.
+        """
+        try:
+            return IconConfig(icon_data["src"], icon_data["dst"], toml_file_path)
+        except KeyError as e:
+            print(f"Warning: Incomplete icon configuration: Missing key {e} in {icon_data}")
+            return None  # Or raise an exception, depending on desired behavior
+
+
     @classmethod
     def from_toml(cls, toml_file_path: str):
-        """
-        Loads the configuration from a TOML file.
-
-        Args:
-            toml_file_path (str): The path to the TOML file.
-
-        Returns:
-            Config: A Config object containing the loaded configuration.
-        """
-        config = cls()  # Create an instance of Config
-        content = Path(toml_file_path).read_text(encoding="utf8")
-        toml_data = dict()
+        """Loads config from TOML, handling 'icon' or 'icons' and converting 'icon' to 'icons'."""
         try:
-            toml_data = toml.loads(content)  # Load the TOML data
-            # print(toml_data) #for debugging
+            toml_data = toml.loads(Path(toml_file_path).read_text(encoding="utf8"))
         except toml.TomlDecodeError as e:
-            print(f"Error decoding TOML: {e}")
-            #  Handle TOML decoding errors
+            raise ValueError(f"Error decoding TOML: {e}")  # Re-raise for better error handling
 
+        # Convert 'icon' to 'icons' if necessary
         if "icon" in toml_data:
-            for icon_data in toml_data["icon"]:
-                # print(icon_data) # for debugging
-                if "src" in icon_data and "dst" in icon_data:
-                    icon_config = IconConfig(
-                        icon_data["src"], icon_data["dst"], toml_file_path
-                    )
-                    config.add_icon_config(icon_config)
-                else:
-                    print(f"Warning: Incomplete icon configuration: {icon_data}")
-            print("converting icon to icons...")
-            for icon_data in toml_data["icon"]:
-                import copy
+            toml_data["icons"] = toml_data.pop("icon")  # Use pop for atomicity and to remove 'icon'
+            Path(toml_file_path).write_text(toml.dumps(toml_data), encoding="utf8")
+            print("Note: Converted 'icon' config to 'icons' format.")
 
-                toml_data["icons"] = copy.deepcopy(toml_data["icon"])
-                del toml_data["icon"]
-                Path(toml_file_path).write_text(toml.dumps(toml_data))
-        elif "icons" in toml_data:
-            for icon_data in toml_data["icons"]:
-                # print(icon_data) # for debugging
-                if "src" in icon_data and "dst" in icon_data:
-                    icon_config = IconConfig(
-                        icon_data["src"], icon_data["dst"], toml_file_path
-                    )
-                    config.add_icon_config(icon_config)
-                else:
-                    print(f"Warning: Incomplete icon configuration: {icon_data}")
-        else:
-            print(
-                f"Warning: No 'icon/icons' table found in TOML file: {toml_file_path}"
-            )
+        # Main parsing logic
+        if "icons" not in toml_data:
+            raise ValueError(f"No 'icons' table found in TOML file: {toml_file_path}")
+
+        config = cls()
+        config.icons = [
+            icon_config
+            for icon_data in toml_data["icons"]
+            if (icon_config := cls._parse_icon_data(icon_data, toml_file_path)) is not None
+        ]
+        if not config.icons:
+            raise ValueError(f"No valid icon configurations found in: {toml_file_path}")
 
         return config
 
-    def __iter__(self):
-        """
-        Makes the Config object iterable, allowing iteration over the icon configurations.
-        """
+    def __iter__(self):  # Keep these for compatibility
         return iter(self.icons)
 
     def __len__(self):
-        """
-        Returns the number of icon configurations.
-        """
         return len(self.icons)
 
 
+# --- Utility function (unchanged, but included for completeness) ---
 def get_config_path() -> Path:
     parser = argparse.ArgumentParser(
         description="A program that loads configuration files."

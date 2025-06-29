@@ -1,55 +1,105 @@
-import os
+import io
+import zipfile
 from watchdog.observers import Observer
-from watchdog.observers.api import BaseObserver
 from watchdog.events import FileSystemEventHandler
-import subprocess
-from sodatools import str_path, CD
 from pathlib import Path
+from PIL import Image
 
 
-def convert_to_ico(krita_filepath, output_file: Path):
-    """Converts a Krita image to an ICO file."""
+def convert_to_ico(krita_filepath: str | Path, output_file: Path):
+    """
+    Converts a Krita image to an ICO file using pure Python libraries.
+
+    It works by extracting 'mergedimage.png' from the .kra (zip) file
+    and converting it to an .ico file in memory.
+    """
     try:
-        with CD(Path(krita_filepath).parent):
-            subprocess.run(
-                [
-                    "7z",
-                    "x",
-                    "-y",
-                    krita_filepath,
-                    "mergedimage.png",
-                ],
-                check=True,
-            )
-            subprocess.run(
-                ["magick", "mergedimage.png", str_path(output_file)],
-                check=True,
-            )
+        # KRA files are zip archives. We extract the preview image.
+        with zipfile.ZipFile(krita_filepath, "r") as kra_zip:
+            if "mergedimage.png" not in kra_zip.namelist():
+                print(f"Error: 'mergedimage.png' not found in '{krita_filepath}'.")
+                return
+
+            png_data = kra_zip.read("mergedimage.png")
+
+        # Convert the PNG data (in memory) to an ICO file
+        with io.BytesIO(png_data) as png_stream:
+            with Image.open(png_stream) as img:
+                # You can specify different sizes for the ICO file
+                icon_sizes = [
+                    (16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (256, 256)
+                ]
+                img.save(output_file, format="ICO", sizes=icon_sizes)
+
+    except FileNotFoundError:
+        print(f"Error: Krita file not found at '{krita_filepath}'")
+    except zipfile.BadZipFile:
+        print(f"Error: '{krita_filepath}' is not a valid Krita (zip) file.")
     except Exception as e:
-        print(f"Error converting '{krita_filepath}': {e}")
+        print(f"An unexpected error occurred during conversion of '{krita_filepath}': {e}")
 
 
 class KritaEventHandler(FileSystemEventHandler):
-    """Handles file system events, specifically looking for Krita file changes."""
+    """Dispatches file modification events to the correct conversion function."""
 
-    def __init__(self, output_file: Path):
+    def __init__(self):
         super().__init__()
-        self.output_file = output_file
+        # A map from full source path (str) to destination path (Path)
+        self.watched_files: dict[str, Path] = {}
+
+    def add_watch(self, src_path: Path, dst_path: Path):
+        """Adds a file to watch."""
+        self.watched_files[str(src_path.resolve())] = dst_path
 
     def on_modified(self, event):
-        if not event.is_directory and event.src_path.lower().endswith((".kra", ".krz")):
+        if event.is_directory:
+            return
+
+        # Check if the modified file is one we are watching
+        if event.src_path in self.watched_files:
             print(f"Detected change in: {event.src_path}")
-            convert_to_ico(event.src_path, self.output_file)
+            output_file = self.watched_files[event.src_path]
+            convert_to_ico(event.src_path, output_file)
 
 
-def watch_detach(path_to_watch: Path, output_file: Path) -> BaseObserver:
-    output_directory = output_file.resolve().parent
-    # Create the output directory if it doesn't exist
-    os.makedirs(output_directory, exist_ok=True)
+class KritaFileWatcher:
+    """
+    Manages a single watchdog Observer to monitor multiple Krita source files
+    for changes and trigger conversions.
+    """
 
-    event_handler = KritaEventHandler(output_file=output_file)
-    observer = Observer()
-    observer.schedule(event_handler, path_to_watch.parent, recursive=False)
-    observer.start()
-    print(f"Watching directory '{path_to_watch}' for changes in Krita files...")
-    return observer
+    def __init__(self):
+        self._observer = Observer()
+        self._event_handler = KritaEventHandler()
+        self._watched_dirs = set()
+
+    def add_watch(self, src_path: Path, dst_path: Path):
+        """
+        Adds a source Krita file to watch.
+
+        It schedules the parent directory for watching if it's not already
+        being monitored.
+        """
+        # Ensure the destination directory exists
+        dst_path.parent.mkdir(parents=True, exist_ok=True)
+
+        self._event_handler.add_watch(src_path, dst_path)
+
+        # Watch the parent directory, but only schedule one watch per directory
+        watch_dir = src_path.parent
+        if watch_dir not in self._watched_dirs:
+            self._observer.schedule(self._event_handler, watch_dir, recursive=False)
+            self._watched_dirs.add(watch_dir)
+            print(f"Watching directory '{watch_dir}' for Krita file changes...")
+
+    def start(self):
+        """Starts the file observer."""
+        self._observer.start()
+
+    def stop(self):
+        """Stops the file observer."""
+        self._observer.stop()
+
+    def join(self):
+        """Waits until the observer thread terminates."""
+        self._observer.join()

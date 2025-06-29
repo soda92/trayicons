@@ -5,6 +5,7 @@ description = "Preview your tray icons made easy"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "pillow>=11.2.1",
     "pywin32>=310",
     "sodatools>=2025.2.16.0",
     "toml>=0.10.2",
