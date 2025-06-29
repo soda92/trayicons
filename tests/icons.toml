@@ -2,3 +2,7 @@
 src = "demo.kra"
 dst = "./demo.ico"
 
+[[icons]]
+src = "demo2.kra"
+dst = "./demo2.ico"
+

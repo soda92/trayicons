@@ -1,4 +1,3 @@
-import win32api
 import win32con
 import win32gui
 from pathlib import Path
@@ -42,8 +41,10 @@ class MainWindow:
             win32con.WM_USER + 20: self.on_taskbar_notify,
         }
 
-        # Create the underlying window and tray icon
-        self._window = Win32Window("KritaTrayIconWindowClass", "Krita Tray Icon", message_map)
+        # Create a unique window class for each instance to support multiple icons
+        class_name = f"KritaTrayIconWindowClass_{id(self)}"
+        window_name = f"Krita Tray Icon - {self.icon_path.name}"
+        self._window = Win32Window(class_name, window_name, message_map)
         self._tray_icon = SystemTrayIcon(self._window.hwnd, self.icon_path, self.tooltip)
 
         # Setup the observer for the .ico file itself to update the tray icon
@@ -90,7 +91,6 @@ class MainWindow:
     def on_destroy(self, hwnd, msg, wparam, lparam):
         """Handles the WM_DESTROY message to clean up resources."""
         self._tray_icon.remove_icon()
-        win32gui.PostQuitMessage(0)  # Terminate the message loop
 
     def on_taskbar_notify(self, hwnd, msg, wparam, lparam):
         """Handles mouse events on the tray icon."""
@@ -102,18 +102,15 @@ class MainWindow:
         """Handles commands from the context menu."""
         item_id = win32gui.LOWORD(wparam)
         if item_id == self.menu_item_exit_id:
-            self.shutdown()
+            print("Exit command received, shutting down application.")
+            win32gui.PostQuitMessage(0)
 
     def shutdown(self):
-        """Shuts down the application, stopping watchers and closing the window."""
+        """Stops this instance's file watcher and destroys its window."""
         self.observer.stop()
-        self.krita_watcher.stop()
         self.observer.join()
-        self.krita_watcher.join()
         win32gui.DestroyWindow(self._window.hwnd)
 
     def run(self):
-        """Starts the application by adding the icon and entering the message loop."""
+        """Prepares the window for running by adding the icon to the tray."""
         self._tray_icon.add_icon()
-        self.krita_watcher.start()
-        win32gui.PumpMessages()
