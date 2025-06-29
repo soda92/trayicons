@@ -87,10 +87,12 @@ class MainWindow:
     def on_restart(self, hwnd, msg, wparam, lparam):
         """Handles the TaskbarCreated message, sent when explorer.exe restarts."""
         self._tray_icon.add_icon()
+        return 0
 
     def on_destroy(self, hwnd, msg, wparam, lparam):
         """Handles the WM_DESTROY message to clean up resources."""
         self._tray_icon.remove_icon()
+        return 0
 
     def on_taskbar_notify(self, hwnd, msg, wparam, lparam):
         """Handles mouse events on the tray icon."""
@@ -104,6 +106,7 @@ class MainWindow:
         if item_id == self.menu_item_exit_id:
             print("Exit command received, shutting down application.")
             win32gui.PostQuitMessage(0)
+        return 0
 
     def shutdown(self):
         """Stops this instance's file watcher and destroys its window."""
