@@ -1,6 +1,6 @@
 [project]
 name = "trayicons"
-version = "2025.6.29.0"
+version = "2025.6.30.0"
 description = "Preview your tray icons made easy"
 readme = "README.md"
 requires-python = ">=3.11"
