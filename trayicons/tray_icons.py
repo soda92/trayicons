@@ -27,7 +27,7 @@ class MainWindow:
     window, and file watchers.
     """
 
-    def __init__(self, icon_path: Path, krita_handler: Observer):
+    def __init__(self, icon_path: Path, krita_handler):
         self.icon_path = icon_path
         self.krita_watcher = krita_handler
         self.tooltip = "Krita Tray Icon"

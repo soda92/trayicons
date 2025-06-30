@@ -1,3 +1,5 @@
+import win32api
+import win32con
 from .tray_icons import MainWindow
 from .watchdog import KritaFileWatcher, convert_to_ico
 from .config import get_config_path, Config
@@ -42,10 +44,28 @@ def main():
         tray_window.run()
 
     # --- Main Message Loop ---
-    # This will block until a WM_QUIT message is received (e.g., from PostQuitMessage)
+    # Get the current thread ID for the signal handler
+    main_thread_id = win32api.GetCurrentThreadId()
+
+    def console_handler(ctrl_type):
+        """A handler for console control events (like Ctrl+C)."""
+        if ctrl_type == win32con.CTRL_C_EVENT:
+            print("\nCtrl+C detected. Requesting application shutdown...")
+            win32gui.PostThreadMessage(main_thread_id, win32con.WM_QUIT, 0, 0)
+            return True  # We've handled the event
+        return False # Pass other signals to the next handler
+
+    # Register the console control handler.
+    win32api.SetConsoleCtrlHandler(console_handler, True)
+
+    print("Application started. Press Ctrl+C or use the tray icon's Exit menu to quit.")
+
+    # The main message loop. This blocks until a WM_QUIT message is received.
+    # WM_QUIT can be posted by the tray icon's "Exit" menu or by our Ctrl+C handler.
     win32gui.PumpMessages()
 
     # --- Shutdown ---
+    # This code runs after PumpMessages() returns.
     print("Application quitting. Cleaning up all resources...")
     krita_watcher.stop()
     krita_watcher.join()
